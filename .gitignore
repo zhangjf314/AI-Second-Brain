@@ -1,0 +1,17 @@
+# 敏感配置（含 API Key / 邮箱密码等，切勿提交）
+.env
+
+# 运行时数据（聊天历史、长期记忆、会议分析）
+brain.db
+
+# 生成产物
+outputs/
+__pycache__/
+*.pyc
+*.pyo
+
+# Streamlit / IDE
+.streamlit/
+.idea/
+.vscode/
+*.log
