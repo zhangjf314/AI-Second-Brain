@@ -35,7 +35,7 @@ if pdf_file is not None:
                 content = services.extract_pdf_text(pdf_file.getvalue())
                 if not content.strip():
                     st.session_state["pdf_processed"] = pdf_key
-                    st.session_state["pdf_error"] = "PDF 解析失败：未提取到文本（扫描版 PDF 不支持 OCR）"
+                    st.session_state["pdf_error"] = "PDF 解析失败：文本层与 OCR 均未识别出内容（请确认已安装 Tesseract 及中文语言包）"
                 else:
                     db.add_pdf(pdf_file.name, content)
                     st.session_state["pdf_processed"] = pdf_key

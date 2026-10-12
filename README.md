@@ -2,7 +2,7 @@
 
 一个最小可运行、可演示的 AI 外脑 Demo：对话、PDF 背景知识、会议风险分析 + 邮件、长记忆、联网搜索、PPT 生成。
 
-技术栈：Streamlit + OpenAI 兼容 LLM API + PyMuPDF + SQLite + ddgs（联网搜索）+ python-pptx + smtplib。
+技术栈：Streamlit + OpenAI 兼容 LLM API + PyMuPDF + SQLite + ddgs（联网搜索）+ python-pptx + smtplib + Tesseract OCR（扫描版 PDF）。
 
 ## 安装
 
@@ -24,6 +24,10 @@ cp .env.example .env
 | `OPENAI_BASE_URL` | 可选，兼容服务的 Base URL，例如 `https://api.deepseek.com/v1` |
 | `OPENAI_MODEL` | 可选，默认 `gpt-4o-mini` |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `MAIL_FROM` / `MAIL_TO` | 风险提醒邮件，可选；不配置则页面显示“检测到风险，但邮件配置未完成” |
+| `TESSERACT_CMD` | 可选，Tesseract 可执行文件路径；不配置则自动探测 PATH 与常见安装位置 |
+| `TESSERACT_LANGS` | 可选，OCR 语言，默认 `chi_sim+eng` |
+
+扫描版 PDF：需本机安装 [Tesseract 5](https://github.com/tesseract-ocr/tesseract) 及中文语言包 `chi_sim`（`tesseract --list-langs` 可检查）。上传扫描版 PDF 时自动逐页 OCR 识别。
 
 ## 运行
 

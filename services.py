@@ -13,6 +13,7 @@
 import json
 import os
 import re
+import shutil
 import smtplib
 from email.header import Header
 from email.mime.text import MIMEText
@@ -133,17 +134,71 @@ def format_search_results(query, results):
 
 # ======================= PDF 背景知识 =======================
 
+TESSERACT_LANGS = os.getenv("TESSERACT_LANGS", "chi_sim+eng").strip() or "chi_sim+eng"
+
+
+def tesseract_cmd():
+    """定位 tesseract.exe：优先 TESSERACT_CMD 环境变量，其次 PATH，最后常见安装位置。"""
+    cmd = os.getenv("TESSERACT_CMD", "").strip()
+    if cmd:
+        return cmd
+    found = shutil.which("tesseract")
+    if found:
+        return found
+    for p in (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ):
+        if os.path.exists(p):
+            return p
+    return "tesseract"
+
+
+def _ocr_pdf(file_bytes):
+    """用 Tesseract OCR 解析无文本层的 PDF（扫描件）。
+
+    每页渲染为图片后逐页识别；需要本机安装 Tesseract 5 及对应语言包
+    （中文 chi_sim / 英文 eng），路径见 tesseract_cmd()。
+    """
+    import io
+
+    import pytesseract
+    from PIL import Image
+
+    try:
+        import pymupdf as fitz
+    except ImportError:
+        import fitz
+
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd()
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    try:
+        texts = []
+        for page in doc:
+            pix = page.get_pixmap(dpi=300)
+            img = Image.open(io.BytesIO(pix.tobytes("png")))
+            text = pytesseract.image_to_string(img, lang=TESSERACT_LANGS)
+            texts.append(text)
+    finally:
+        doc.close()
+    return "\n".join(t for t in texts if t.strip()).strip()
+
+
 def extract_pdf_text(file_bytes):
-    """用 PyMuPDF 从 PDF 字节流中提取文本。"""
+    """提取 PDF 文本：优先文本层（PyMuPDF），无文本层（扫描件）自动走 Tesseract OCR。"""
     try:
         import pymupdf as fitz
     except ImportError:
         import fitz
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     try:
-        return "\n".join(page.get_text() for page in doc).strip()
+        text = "\n".join(page.get_text() for page in doc).strip()
     finally:
         doc.close()
+    if len(text) < 20:
+        # 几乎没有文本层，视为扫描件，回退 OCR
+        return _ocr_pdf(file_bytes)
+    return text
 
 
 def pdf_context_for_query(pdf_content, query, max_len=8000):
