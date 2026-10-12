@@ -183,14 +183,25 @@ if prompt:
         _save_and_display_user(prompt)
         with st.spinner("思考中..."):
             try:
-                result = services.chat_reply(prompt)
+                messages, search_status = services.prepare_chat(prompt)
             except Exception as e:  # noqa: BLE001
-                result = {"reply": f"（LLM 调用失败：{e}）", "search_status": "失败"}
-        db.add_message("assistant", result["reply"])
-        with st.chat_message("assistant"):
-            st.markdown(result["reply"])
-        if result.get("search_status") in ("成功", "无结果", "失败"):
-            st.caption(f"联网搜索：{result['search_status']}")
+                messages = None
+                search_status = "失败"
+                err_reply = f"（LLM 调用失败：{e}）"
+        if messages is None:
+            db.add_message("assistant", err_reply)
+            with st.chat_message("assistant"):
+                st.markdown(err_reply)
+        else:
+            with st.chat_message("assistant"):
+                try:
+                    full_reply = st.write_stream(services.stream_llm(messages))
+                except Exception as e:  # noqa: BLE001
+                    full_reply = f"（LLM 调用失败：{e}）"
+                    st.markdown(full_reply)
+            db.add_message("assistant", full_reply)
+        if search_status in ("成功", "无结果", "失败"):
+            st.caption(f"联网搜索：{search_status}")
         # 每轮聊天后抽取长期记忆（失败静默，不影响主流程）
         try:
             services.extract_and_save_memories(prompt, source="chat")

@@ -472,8 +472,12 @@ def build_context(user_text):
     return "\n\n".join(parts)
 
 
-def chat_reply(user_text):
-    """处理一轮普通聊天：搜索 + 上下文组装 + LLM 调用。"""
+def prepare_chat(user_text):
+    """组装一轮聊天所需的 messages，并按需执行联网搜索。
+
+    返回 (messages, search_status)；搜索与组装只做一次，
+    流式/非流式调用共用。
+    """
     from db import get_messages
 
     context = build_context(user_text)
@@ -495,6 +499,22 @@ def chat_reply(user_text):
     messages = [{"role": "system", "content": system}]
     for m in get_messages(limit=30):
         messages.append({"role": m["role"], "content": m["content"]})
+    return messages, search_status
 
+
+def stream_llm(messages):
+    """流式调用 LLM，逐段 yield 文本片段。"""
+    client = _get_client()
+    kwargs = {"model": get_model(), "messages": messages, "stream": True}
+    stream = client.chat.completions.create(**kwargs)
+    for chunk in stream:
+        delta = chunk.choices[0].delta if chunk.choices else None
+        if delta is not None and getattr(delta, "content", None):
+            yield delta.content
+
+
+def chat_reply(user_text):
+    """非流式一轮聊天（保留兼容）：搜索 + 上下文组装 + LLM 调用。"""
+    messages, search_status = prepare_chat(user_text)
     reply = call_llm(messages)
     return {"reply": reply, "search_status": search_status}
